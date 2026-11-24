@@ -1,0 +1,6 @@
+{
+  "name": "Communication Mastery Workbook",
+  "description": "An interactive deliberate practice workbook for mastering the four core communication micro-skills, daily progressive tier logs, and weekly calibration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
