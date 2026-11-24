@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   FileDown,
+  FileUp,
   Printer,
   RotateCcw,
   BookMarked,
   Check,
   AlertCircle,
+  X,
 } from 'lucide-react';
+import type { ImportFeedback } from './WorkbookShell';
 import type {
   DailyLogData,
   DailyTierEntry,
@@ -30,6 +33,9 @@ interface DailyPracticeFormProps {
   mobileRefOpen: boolean;
   onToggleDesktopRef: () => void;
   onToggleMobileRef: () => void;
+  onImportMarkdown: (content: string, filename: string) => void;
+  importFeedback: ImportFeedback | null;
+  onDismissImportFeedback: () => void;
 }
 
 const MICRO_SKILL_OPTIONS: MicroSkillName[] = CORE_MICRO_SKILLS.map((s) => s.name);
@@ -61,9 +67,13 @@ export default function DailyPracticeForm({
   mobileRefOpen,
   onToggleDesktopRef,
   onToggleMobileRef,
+  onImportMarkdown,
+  importFeedback,
+  onDismissImportFeedback,
 }: DailyPracticeFormProps) {
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const progress = calculateDailyProgress(data);
 
@@ -98,7 +108,21 @@ export default function DailyPracticeForm({
 
   const handleConfirmClear = () => {
     onClear();
+    onDismissImportFeedback();
     setConfirmingClear(false);
+  };
+
+  const handleImportFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const content = await file.text();
+      onImportMarkdown(content, file.name);
+    } finally {
+      event.target.value = '';
+    }
   };
 
   return (
@@ -166,6 +190,24 @@ export default function DailyPracticeForm({
               <span>{mobileRefOpen ? 'Hide Quick Reference' : 'Quick Reference'}</span>
             </button>
 
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,.markdown,text/markdown,text/plain"
+              aria-label="Import Markdown workbook file"
+              onChange={handleImportFileChange}
+              className="hidden"
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3.5 py-2 text-xs font-semibold text-[#0F172A] hover:bg-[#F1F5F9] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1D5C59]"
+            >
+              <FileUp className="h-3.5 w-3.5 text-[#1D5C59]" />
+              <span>Import Markdown</span>
+            </button>
+
             <button
               type="button"
               onClick={handleDownloadMarkdown}
@@ -226,6 +268,34 @@ export default function DailyPracticeForm({
           </div>
         </div>
       </header>
+
+      {importFeedback && (
+        <div
+          role={importFeedback.type === 'error' ? 'alert' : 'status'}
+          className={`no-print flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs font-medium ${
+            importFeedback.type === 'error'
+              ? 'border-[#E2C2BA] bg-[#FDF6F4] text-[#9A3412]'
+              : 'border-[#99D5CF] bg-[#F1F8F7] text-[#134E4A]'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {importFeedback.type === 'error' ? (
+              <AlertCircle className="h-4 w-4 shrink-0" />
+            ) : (
+              <Check className="h-4 w-4 shrink-0" />
+            )}
+            <span>{importFeedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onDismissImportFeedback}
+            aria-label="Dismiss import notification"
+            className="rounded p-1 hover:bg-black/5 shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1D5C59]"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
         {/* Daily Header & Bandwidth Check-In */}

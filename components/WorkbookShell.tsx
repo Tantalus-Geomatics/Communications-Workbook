@@ -24,6 +24,15 @@ import {
   calculateDailyProgress,
   calculateWeeklyProgress,
 } from '@/lib/markdown-export';
+import {
+  MarkdownImportError,
+  parseWorkbookMarkdown,
+} from '@/lib/markdown-import';
+
+export interface ImportFeedback {
+  type: 'success' | 'error';
+  message: string;
+}
 
 const INITIAL_DAILY = createDefaultDailyLog('');
 const INITIAL_WEEKLY = createDefaultWeeklyCalibration('');
@@ -44,6 +53,7 @@ export default function WorkbookShell() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [desktopRefOpen, setDesktopRefOpen] = useState(true);
   const [mobileRefOpen, setMobileRefOpen] = useState(false);
+  const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
 
   const effectiveDailyLog = useMemo<DailyLogData>(() => {
     const normalized = normalizeDailyLog(rawDailyLog);
@@ -82,11 +92,47 @@ export default function WorkbookShell() {
   };
 
   const handleSelectView = (view: WorkbookView) => {
+    setImportFeedback(null);
     setActiveView(view);
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     }
   };
+
+  const handleImportMarkdown = useCallback(
+    (content: string, filename: string) => {
+      try {
+        const parsed = parseWorkbookMarkdown(content);
+        if (parsed.kind === 'daily') {
+          setRawDailyLog(parsed.data);
+          setActiveView('daily');
+          setImportFeedback({
+            type: 'success',
+            message: `Imported Daily Practice Log${parsed.data.date ? ` (${parsed.data.date})` : ''} from "${filename}".`,
+          });
+        } else {
+          setRawWeeklyLog(parsed.data);
+          setActiveView('weekly');
+          setImportFeedback({
+            type: 'success',
+            message: `Imported Weekly Calibration${parsed.data.weekOf ? ` (Week of ${parsed.data.weekOf})` : ''} from "${filename}".`,
+          });
+        }
+        if (typeof window !== 'undefined') {
+          window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        }
+      } catch (err) {
+        setImportFeedback({
+          type: 'error',
+          message:
+            err instanceof MarkdownImportError
+              ? err.message
+              : 'Unable to import this Markdown file. Please verify it was exported from this workbook.',
+        });
+      }
+    },
+    [setActiveView, setRawDailyLog, setRawWeeklyLog]
+  );
 
   const dailyProgress = calculateDailyProgress(effectiveDailyLog);
   const weeklyProgress = calculateWeeklyProgress(effectiveWeeklyLog);
@@ -158,6 +204,9 @@ export default function WorkbookShell() {
                 mobileRefOpen={mobileRefOpen}
                 onToggleDesktopRef={() => setDesktopRefOpen((prev) => !prev)}
                 onToggleMobileRef={() => setMobileRefOpen((prev) => !prev)}
+                onImportMarkdown={handleImportMarkdown}
+                importFeedback={importFeedback}
+                onDismissImportFeedback={() => setImportFeedback(null)}
               />
             )}
 
@@ -171,6 +220,9 @@ export default function WorkbookShell() {
                 mobileRefOpen={mobileRefOpen}
                 onToggleDesktopRef={() => setDesktopRefOpen((prev) => !prev)}
                 onToggleMobileRef={() => setMobileRefOpen((prev) => !prev)}
+                onImportMarkdown={handleImportMarkdown}
+                importFeedback={importFeedback}
+                onDismissImportFeedback={() => setImportFeedback(null)}
               />
             )}
           </motion.div>
